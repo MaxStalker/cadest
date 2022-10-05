@@ -29,6 +29,7 @@ async function executeScript(a) {
   return parseInt(value);
 }
 
+/*
 describe("how thus works", () => {
   it("shall do something", async () => {
     for (let i = 0; i < 100; i++) {
@@ -37,3 +38,4 @@ describe("how thus works", () => {
     }
   });
 });
+*/
