@@ -1,3 +1,8 @@
-import { getCadenceScriptByName } from "./file";
+import { getCadenceCode } from "./file";
 
-getCadenceScriptByName("basic");
+const code = ``;
+const addressMap = {
+  FT: "0x1337",
+};
+const result = await getCadenceCode("basic", "script", addressMap)("./test/cadence");
+console.log({ result });
