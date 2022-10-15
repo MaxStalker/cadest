@@ -4,6 +4,8 @@ import {
   extractParameters,
   executeScript,
   query,
+  sendTransaction,
+  mutate,
 } from "../src/interactions";
 
 const basePath = `${__dirname}/cadence`;
@@ -52,15 +54,16 @@ describe("parameter extractor", () => {
   });
 });
 
+
 describe("script execution", () => {
   // run emulator before running this test
   it("shall properly return value from emulator", async () => {
-    const result = await executeScript({ name: "number" }, basePath);
+    const result = await executeScript("test")({ name: "number" }, basePath);
     expect(result).toBe("1337");
   });
 
-  it("shall properly use 'query' alias ", async () => {
-    const result = await query({ name: "number" }, basePath);
+  it("shall properly use query alias ", async () => {
+    const result = await query("test")({ name: "number" }, basePath);
     expect(result).toBe("1337");
   });
 });

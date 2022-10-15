@@ -58,6 +58,7 @@ async function execScript() {
 
 async function submitTransaction() {
   const { address, key } = config.accounts["emulator-account"];
+  console.log({address})
   const [block] = await fetch(
     "http://localhost:8888/v1/blocks?height=final"
   ).then((t) => t.json());

@@ -1,7 +1,8 @@
 // This is basic transaction
-transaction(a: Int, b: Int){
+transaction{
     prepare(signer: AuthAccount){
         // log signer's address
-        log(signer.Address)
+        log("nice")
+        log(signer.address)
     }
 }
