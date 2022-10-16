@@ -1,29 +1,22 @@
 import { replaceImportAddresses } from "@onflow/flow-cadut";
-import { isObject } from "./utils";
 import { getCadenceCode } from "./file";
-import { AddressMap } from "./types/file";
-import { sign } from "crypto";
 
 export const DEFAULT_LIMIT = "999";
 
-type MaybeString = string | null;
-type MaybeSigners = string[] | null;
-
 interface ExtractorParams {
-  name: MaybeString;
-  code: MaybeString;
-  args: any[];
-  signers: MaybeSigners;
-  limit: number;
+  name?: string;
+  code?: string;
+  args?: any[];
+  signers?: string[];
+  limit?: number;
 }
 
 interface ExtractorResult {
   code: string;
   args: any[];
-  signers: MaybeSigners;
-  limit: MaybeString;
-  proposer: MaybeString;
-  payer: MaybeString;
+  signers: string[];
+  limit: string;
+  name?: string;
 }
 
 export const extractParameters = (ixType, basePath) => {
@@ -55,15 +48,21 @@ export const extractParameters = (ixType, basePath) => {
     ixCode = replaceImportAddresses(ixCode, resolvedAddressMap);
 
     // TODO: Fix argument mapping
-    let ixArgs = args.map((i) => i);
+    let ixArgs = args.map((i) => btoa(JSON.stringify(i)));
 
     let proposer = "";
     let payer = "";
 
+    let ixName = name;
+    if (ixType === "contract") {
+      // resolve name here
+    }
+
     return {
+      name: ixName,
       code: ixCode,
       args: ixArgs,
-      signers: signers as MaybeSigners,
+      signers,
       limit: limit.toString(),
       proposer,
       payer,
@@ -118,15 +117,17 @@ const getSequenceNumber = async (
 };
 
 const prepareBody = async (
-  props: ExtractorResult,
+  params: ExtractorResult,
   endpoint: string
 ): Promise<any> => {
-  const { code, limit, signers } = props;
+  const { code, limit, signers, args } = params;
+  console.log({ args });
   const refBlock = await getLatestBlockId(endpoint);
   const sequence_number = await getSequenceNumber(endpoint);
   const payload_signatures = signers
     // todo: if we would allow to pass payer, we need to filter him from payload signatures
     // .filter((address) => address.includes(payer))
+    .filter((address) => address.includes("f8d6e0586b0a20c7"))
     .map((address) => {
       return {
         address,
@@ -136,7 +137,7 @@ const prepareBody = async (
     });
   const body = {
     script: btoa(code),
-    arguments: [],
+    arguments: args,
     reference_block_id: refBlock,
     gas_limit: limit,
     payer: "f8d6e0586b0a20c7",
@@ -152,9 +153,10 @@ const prepareBody = async (
         signature: btoa("flow".padStart(64, "x")),
       },
     ],
-    payload_signatures,
+    payload_signatures: [],
     authorizers: signers,
   };
+  console.log({ body });
   return JSON.stringify(body);
 };
 
@@ -181,7 +183,6 @@ export const sendTransaction =
       "transaction",
       basePath
     )(props);
-    const { args, code } = params;
     const url = `${endpoint}/v1/transactions`;
     try {
       const body = await prepareBody(params, endpoint);
@@ -201,5 +202,57 @@ export const sendTransaction =
     }
   };
 
+// Export aliases as well
 export const query = executeScript;
 export const mutate = sendTransaction;
+
+export const hexContract = (contract) =>
+  Buffer.from(contract, "utf8").toString("hex");
+
+export const deployTemplate = () => {
+  const code = `
+    transaction(name:String, code: String) {
+        prepare(acct: AuthAccount){
+            let decoded = code.decodeHex()
+            acct.contracts.add(
+               name: name,
+               code: decoded
+            )
+        }
+    }
+  `;
+  // TODO: allow to pass arguments
+  return code;
+};
+
+export const deployContract =
+  (header: string) =>
+  async (
+    props: ExtractorParams,
+    basePath: string,
+    endpoint = "http://localhost:8888"
+  ) => {
+    const params: ExtractorResult = await extractParameters(
+      "contract",
+      basePath
+    )(props);
+    console.log({ params });
+
+    const { code, name } = params;
+    // Replace contract import addresses
+    const addressMap = {} as { string: string };
+    let contractCode = replaceImportAddresses(code, addressMap);
+    const hexedCode = hexContract(contractCode);
+    const txCode = deployTemplate();
+    await sendTransaction(header)(
+      {
+        code: txCode,
+        signers: ["0xf8d6e0586b0a20c7"],
+        args: [
+          { type: "String", value: name },
+          { type: "String", value: hexedCode },
+        ],
+      },
+      basePath
+    );
+  };
